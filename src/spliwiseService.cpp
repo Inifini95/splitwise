@@ -63,28 +63,60 @@ void splitwiseService::removeUser(string name)
     sw->userCount--;
     
 }
+vector<double> splitwiseService::buildNetBalance() {
+    int n = sw->matrix.size();
+    vector<double> net(n, 0.0);
 
-void splitwiseService::displayBalance()
-{
-    cout<<"a"<<endl;
-    for(int i=1;i<=sw->userCount;i++)
-    {
-        
-        string curr = sw->userIndex[i];
-        for(int j = 1;j<=sw->userCount;j++)
-        {
-            if(sw->matrix[i][j] > 0.00)
-            {
-                cout<<sw->userIndex[j]<<" owes "<<sw->matrix[i][j]<<" to "<<sw->userIndex[i]<<endl;
+    for (int i = 1; i < n; i++) {
+        for (int j = 1; j < n; j++) {
+
+            double val = sw->matrix[i][j];
+
+            // ONLY consider one direction to avoid double counting
+            if (val > 0) {
+                net[i] += val;   // i should receive
+                net[j] -= val;   // j should pay
             }
         }
     }
+
+    return net;
+}
+void splitwiseService::displayBalance()
+{
+
+    vector<double> net = buildNetBalance();
+
+    // Step 2: minimize
+    auto transactions = minimizeTransactions(net);
+
+    // Step 3: display
+    if (transactions.empty()) {
+        cout << "No balances to settle\n";
+        return;
+    }
+
+    
+
+    for (auto& [fromIdx, toIdx, amount] : transactions) {
+    cout << sw->userIndex[fromIdx] << " pays "
+         << sw->userIndex[toIdx] << " ₹ " << amount << endl;
+}
     
 }
 
 void splitwiseService::addPayment(double amount, string name, splitLogicService* splitLogic, splitInput* si)
 {
-    
+    if(amount<0.00)
+    {
+        cout<<"Enter a valid amount"<<endl;
+        return;
+    }
+    if(sw->findIndex.find(name)==sw->findIndex.end())
+    {
+        cout<<"User doesn't exist";
+        return;
+    }
     vector<pair<string,double>> ans = splitLogic->split(amount,name, si);
 
     int payerIndex = this->sw->findIndex[name];
@@ -96,26 +128,7 @@ void splitwiseService::addPayment(double amount, string name, splitLogicService*
         this->sw->matrix[payerIndex][payeeIndex] += amt;
         this->sw->matrix[payeeIndex][payerIndex] -= amt;
     }
-    // double split_amount = amount/sw->userCount;
-    // cout<<name<<" "<<split_amount<<endl;
-    // user* u = findUser(name);
     
-    // if(u==nullptr)
-    // {
-    //     cout<<"user not found"<<endl;
-    //     return;
-    // }
-    // int serial = u->serialNo;
-
-    // cout<<"serial no "<<serial<<endl;
-    // cout<<" user count "<<sw->userCount<<endl;
-    // for(int i = 1;i<=sw->userCount;i++)
-    // {
-    //     if(i==serial)
-    //     {continue;}
-    //     sw->matrix[serial][i] += split_amount;
-    //     sw->matrix[i][serial] -= split_amount;
-    // }
 
 }
 user* splitwiseService::findUser(string name)
@@ -130,33 +143,73 @@ user* splitwiseService::findUser(string name)
     return nullptr;
 }
 
+//settles only the amount that the person owes to others.
 void splitwiseService::settle(string name)
 {
-    // user* u = findUser(name);
-    
-    // if(u==nullptr)
-    // {
-    //     cout<<"user not found"<<endl;
-    //     return;
-    // }
-    // double amount = 0.00;
-    // int serial = u->serialNo;
-    // for(int i = 1;i<=sw->userCount;i++)
-    // {
-    //     if(i==serial)continue;
+    if(sw->findIndex.find(name)==sw->findIndex.end())
+    {
+        cout<<"user not found"<<endl;
+        return;
+    }
+    double amount = 0.00;
+    int serial = sw->findIndex[name];
+    for(int i = 1;i<=sw->userCount;i++)
+    {
+        if(i==serial)continue;
 
-    //     if(sw->matrix[serial][i]<0)
-    //     {
-    //         amount+=sw->matrix[serial][i]*(-1);
-    //         sw->matrix[serial][i] = 0.00;
-    //         sw->matrix[i][serial] = 0.00;
-    //     }
-    // }
+        if(sw->matrix[serial][i]<0)
+        {
+            amount+=sw->matrix[serial][i]*(-1);
+            sw->matrix[serial][i] = 0.00;
+            sw->matrix[i][serial] = 0.00;
+        }
+    }
     
-    // cout<<"amount settled by "<<name<<" is "<<amount<<endl;
+    cout<<"amount settled by "<<name<<" is "<<amount<<endl;
 }
-// void splitwiseService::simplify()
-// {
+
+vector<tuple<int, int, double>> splitwiseService::minimizeTransactions(vector<double> net) {
+    int n = net.size();
+
+    vector<pair<int, double>> debtors, creditors;
+
+    for (int i = 0; i < n; i++) {
+        if (net[i] < -1e-6)
+            debtors.push_back({i, net[i]});
+        else if (net[i] > 1e-6)
+            creditors.push_back({i, net[i]});
+    }
+
+    // Most negative first (largest debtor)
+    sort(debtors.begin(), debtors.end());
+
+    // Largest creditor first
+    sort(creditors.begin(), creditors.end(),
+         [](auto& a, auto& b) { return a.second > b.second; });
+
+    int i = 0, j = 0;
+    vector<tuple<int, int, double>> result;
+
+    while (i < debtors.size() && j < creditors.size()) {
+        auto& [dIdx, dAmt] = debtors[i];
+        auto& [cIdx, cAmt] = creditors[j];
+
+        double settleAmount = min(-dAmt, cAmt);
+
+        result.push_back({dIdx, cIdx, settleAmount});
+
+        dAmt += settleAmount;
+        cAmt -= settleAmount;
+
+        if (abs(dAmt) < 1e-6) i++;
+        if (abs(cAmt) < 1e-6) j++;
+    }
+
+    return result;
+}
+ void splitwiseService::simplify()
+{
+
 //     cout<<"aaaa"<<endl;
 //     user* giver = nullptr;
 //     for(auto x : sw->userList)
@@ -230,4 +283,4 @@ void splitwiseService::settle(string name)
 //         taker->simplifiedTotal += giver->balance - giver->simplifiedTotal;
 //     }
 //     simplify();
-// }
+}

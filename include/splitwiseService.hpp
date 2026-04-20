@@ -22,6 +22,8 @@ class splitwiseService
         void settle(string name);
         void simplify();
         int findAvailableIndex();
+        vector<double> buildNetBalance();
+        vector<tuple<int, int, double>> minimizeTransactions(vector<double> net);
         user* findUser(string name);
 
 };

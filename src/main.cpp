@@ -34,36 +34,25 @@ int main()
     // sw.removeUser("rahul");
     // sw.settle("rahul");
     // sw.displayBalance();
+
+cout << "\n--- TEST 3: Uneven ---\n";
+
     splitwiseService sw;
 
-sw.addUser("abhishek");
-sw.addUser("rahul");
-sw.addUser("atharva");
+    sw.addUser("A");
+    sw.addUser("B");
+    sw.addUser("C");
 
-equalSplitLogicService equalSplit;
-percentSplitLogicService percentSplit;
+    equalSplitLogicService equalSplit;
+    splitLogicService* splitLogic = &equalSplit;
 
-splitLogicService* splitLogic;
+    equalSplitInput eqi;
 
-// Equal split
-equalSplitInput eqi;
-eqi.participants = {"abhishek","rahul","atharva"};
+    eqi.participants = {"A","B","C"};
+    sw.addPayment(300, "A", splitLogic, &eqi); // B,C owe 100
 
-splitLogic = &equalSplit;
-sw.addPayment(300, "abhishek", splitLogic, &eqi);
+    eqi.participants = {"B","C"};
+    sw.addPayment(150, "B", splitLogic, &eqi); // C owes 75
 
-// Percentage split
-percentageSplitInput pci;
-pci.participants = {"abhishek","rahul","atharva"};
-pci.percentages = {
-    {"abhishek",50},
-    {"rahul",25},
-    {"atharva",25}
-};
-
-splitLogic = &percentSplit;
-sw.addPayment(400, "atharva", splitLogic, &pci);
-
-sw.displayBalance();
-    return 0;
+    sw.displayBalance();
 }
